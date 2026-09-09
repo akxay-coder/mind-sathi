@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, MessageCircleHeart, Clock, BookOpen, User } from 'lucide-react';
+import { Home, MessageCircleHeart, BookOpen, User } from 'lucide-react';
 
-export type TabType = 'home' | 'checkin' | 'case' | 'resources' | 'profile';
+export type TabType = 'home' | 'checkin' | 'resources' | 'profile' | 'case';
 
 interface BottomNavigationProps {
   currentTab: TabType;
@@ -15,7 +15,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'checkin', label: 'Check-In', icon: MessageCircleHeart },
-    { id: 'case', label: 'Case Status', icon: Clock },
     { id: 'resources', label: 'Resources', icon: BookOpen },
     { id: 'profile', label: 'Profile', icon: User },
   ] as const;

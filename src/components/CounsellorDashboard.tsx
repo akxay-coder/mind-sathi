@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import {
   CaseData,
+  CaseStage,
   CounsellorAlert,
   InterventionNote,
   DailyCheckInRecord,
@@ -38,6 +39,7 @@ import {
   INITIAL_CHECKINS,
 } from '../data/mockData';
 import { useFirebase } from '../context/FirebaseContext';
+import { PatientMoodTrendGraph } from './PatientMoodTrendGraph';
 
 interface CounsellorDashboardProps {
   onLogout: () => void;
@@ -52,8 +54,10 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
     cases: firebaseCases,
     alerts: firebaseAlerts,
     interventions: firebaseInterventions,
+    checkIns: firebaseCheckIns,
     addInterventionNote,
     resolveCounsellorAlert,
+    addNewPatient,
     isFirebaseConnected,
     currentUser,
     userProfile,
@@ -66,6 +70,26 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
   const [selectedCase, setSelectedCase] = useState<CaseData | null>(cases[0] || null);
   const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'alerts' | 'trends'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+
+  // Add Patient Modal State
+  const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientCaseNumber, setNewPatientCaseNumber] = useState('');
+  const [newPatientAge, setNewPatientAge] = useState('26');
+  const [newPatientIncidentType, setNewPatientIncidentType] = useState('Protection of Civil Rights & SC/ST Prevention of Atrocities Matter');
+  const [newPatientStage, setNewPatientStage] = useState<CaseStage>('registration');
+  const [newPatientHearingDate, setNewPatientHearingDate] = useState('18 Nov 2026');
+  const [newPatientDistress, setNewPatientDistress] = useState<'Normal' | 'Moderate' | 'High'>('Moderate');
+  const [newPatientContactPref, setNewPatientContactPref] = useState<'call' | 'whatsapp' | 'sms' | 'silent'>('call');
+  const [newPatientPreferredTime, setNewPatientPreferredTime] = useState('10:00 AM - 1:00 PM');
+  const [newPatientLanguage, setNewPatientLanguage] = useState('Hindi');
+  const [newPatientOfficer, setNewPatientOfficer] = useState('Insp. R. K. Meena (Special Cell)');
+  const [newPatientLegalAid, setNewPatientLegalAid] = useState('DLSA Central Delhi • Advocate Panel');
+  const [newPatientInitialNote, setNewPatientInitialNote] = useState('');
+  const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
 
   // Add Intervention Note state
   const [newNoteText, setNewNoteText] = useState('');
@@ -80,6 +104,59 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
     await resolveCounsellorAlert(alertId, resolutionComment || 'Resolved post counsellor review and victim check-in.');
     setResolvingAlert(null);
     setResolutionComment('');
+  };
+
+  const handleCreatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPatientName.trim()) return;
+
+    setIsSubmittingPatient(true);
+    try {
+      const generatedCaseNum = newPatientCaseNumber.trim() || `MSJE/NHAA/2026/${Math.floor(1000 + Math.random() * 9000)}`;
+      const created = await addNewPatient({
+        complainantName: newPatientName.trim(),
+        caseNumber: generatedCaseNum,
+        age: parseInt(newPatientAge, 10) || 28,
+        incidentType: newPatientIncidentType.trim(),
+        currentStage: newPatientStage,
+        nextHearingDate: newPatientHearingDate.trim() || 'Review within 30 days',
+        distressLevel: newPatientDistress,
+        contactPreference: newPatientContactPref,
+        preferredTime: newPatientPreferredTime.trim() || '10:00 AM - 1:00 PM',
+        language: newPatientLanguage.trim() || 'Hindi',
+        assignedOfficer: newPatientOfficer.trim() || 'Special Cell Desk',
+        districtLegalAid: newPatientLegalAid.trim() || 'DLSA Panel Advocate',
+        assignedCounsellor: userProfile.name || 'Dr. Ananya Sen (MoSJE Empanelled)',
+      });
+
+      if (newPatientInitialNote.trim()) {
+        await addInterventionNote(
+          created.id,
+          newPatientInitialNote.trim(),
+          'Initial clinical baseline intake and psycho-legal triage conducted.'
+        );
+      }
+
+      setSelectedCase(created);
+      setRecentlyAddedId(created.id);
+      setActiveTab('cases');
+      setIsAddPatientOpen(false);
+
+      // Reset form fields
+      setNewPatientName('');
+      setNewPatientCaseNumber('');
+      setNewPatientAge('26');
+      setNewPatientInitialNote('');
+
+      setToastMessage(`Patient "${created.complainantName}" (${created.caseNumber}) successfully registered and added to Counsellor Dossier!`);
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+    } catch (err) {
+      console.error('Error adding patient:', err);
+    } finally {
+      setIsSubmittingPatient(false);
+    }
   };
 
   const handleAddIntervention = async (e: React.FormEvent) => {
@@ -137,6 +214,15 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
               <Cloud className="w-3 h-3 text-emerald-600" />
               <span>Firebase Synced</span>
             </div>
+
+            <button
+              onClick={() => setIsAddPatientOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition active:scale-95 shadow-xs"
+              title="Add New Patient"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Patient</span>
+            </button>
 
             <button
               onClick={onOpenHelpline}
@@ -204,6 +290,24 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+        {/* Toast Notification Banner */}
+        {toastMessage && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+              <span>{toastMessage}</span>
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-100/60 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Metric Cards Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl p-4 border border-sky-100 shadow-xs">
@@ -213,9 +317,9 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-extrabold text-slate-800 mt-2">142</p>
+            <p className="text-2xl font-extrabold text-slate-800 mt-2">{cases.length}</p>
             <p className="text-[11px] text-emerald-600 font-medium mt-1">
-              Active across Delhi NCR & Regions
+              Active monitored complainants
             </p>
           </div>
 
@@ -441,7 +545,10 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                           <button
                             onClick={() => {
                               const found = cases.find((c) => c.id === alert.caseId);
-                              if (found) setSelectedCase(found);
+                              if (found) {
+                                setSelectedCase(found);
+                                setIsPatientModalOpen(true);
+                              }
                             }}
                             className="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold transition"
                           >
@@ -508,20 +615,11 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Compensation Summary */}
-                  <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-xs space-y-1">
-                    <p className="font-bold text-emerald-900">
-                      PoA Victim Relief Status:
-                    </p>
-                    <div className="flex justify-between text-[11px] text-emerald-800">
-                      <span>Interim Disbursed:</span>
-                      <strong>{selectedCase.compensationStatus.interimDisbursed}</strong>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-emerald-800">
-                      <span>Total Eligible:</span>
-                      <strong>{selectedCase.compensationStatus.totalEligible}</strong>
-                    </div>
-                  </div>
+                  {/* Recent Mood Trend (Last 7 Days) */}
+                  <PatientMoodTrendGraph
+                    caseData={selectedCase}
+                    userCheckIns={firebaseCheckIns}
+                  />
 
                   {/* Intervention Notes Log */}
                   <div className="space-y-3 pt-1">
@@ -619,15 +717,24 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 </p>
               </div>
 
-              <div className="relative max-w-xs w-full">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, case #, or matter..."
-                  className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
-                />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <div className="flex items-center gap-2 max-w-md w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, case #, or matter..."
+                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                </div>
+                <button
+                  onClick={() => setIsAddPatientOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition active:scale-95 shrink-0 shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Patient</span>
+                </button>
               </div>
             </div>
 
@@ -645,52 +752,69 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredCases.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/70 transition">
-                      <td className="py-3 px-3 font-bold text-slate-800">
-                        {c.complainantName}
-                        <span className="block text-[10px] font-normal text-slate-400">
-                          {c.age} Yrs • {c.language}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 font-medium">
-                        {c.caseNumber}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 capitalize">
-                          {c.currentStage}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-600">
-                        {c.nextHearingDate}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            c.distressLevel === 'High'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {c.distressLevel}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 uppercase text-[10px] font-semibold text-slate-600">
-                        {c.contactPreference}
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedCase(c);
-                            setActiveTab('overview');
-                          }}
-                          className="px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg font-bold text-xs"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredCases.map((c) => {
+                    const isNew = c.id === recentlyAddedId;
+                    return (
+                      <tr
+                        key={c.id}
+                        className={`transition ${
+                          isNew ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50/70'
+                        }`}
+                      >
+                        <td className="py-3 px-3 font-bold text-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span>{c.complainantName}</span>
+                            {isNew && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <span className="block text-[10px] font-normal text-slate-400">
+                            {c.age} Yrs • {c.language}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-medium">
+                          {c.caseNumber}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 capitalize">
+                            {c.currentStage}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">
+                          {c.nextHearingDate}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.distressLevel === 'High'
+                                ? 'bg-rose-100 text-rose-800'
+                                : c.distressLevel === 'Moderate'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {c.distressLevel}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 uppercase text-[10px] font-semibold text-slate-600">
+                          {c.contactPreference}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedCase(c);
+                              setIsPatientModalOpen(true);
+                            }}
+                            className="px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg font-bold text-xs"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -807,7 +931,7 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 PoA Stage Casework Distribution
               </h3>
               <p className="text-xs text-slate-500">
-                Progression across statutory milestones under Ministry oversight
+                Progression across statutory procedural stages under Ministry oversight
               </p>
 
               <div className="space-y-3 pt-2">
@@ -886,6 +1010,504 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
               >
                 Confirm Resolution
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Patient Modal */}
+      {isAddPatientOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-8 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-slate-800">
+                      Register New Patient / Complainant
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                      Counsellor Intake
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    MoSJE • Samvedna System Casework Dossier Intake Register
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddPatientOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreatePatient} className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* Personal Details */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-sky-600" />
+                  <span>1. Complainant Personal Profile</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Complainant Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newPatientName}
+                      onChange={(e) => setNewPatientName(e.target.value)}
+                      placeholder="e.g. Anil Kumar Gautam"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="110"
+                      value={newPatientAge}
+                      onChange={(e) => setNewPatientAge(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Language
+                    </label>
+                    <select
+                      value={newPatientLanguage}
+                      onChange={(e) => setNewPatientLanguage(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    >
+                      {['Hindi', 'English', 'Marathi', 'Bengali', 'Tamil', 'Telugu', 'Punjabi', 'Gujarati', 'Odia'].map((l) => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Contact Preference
+                    </label>
+                    <select
+                      value={newPatientContactPref}
+                      onChange={(e) => setNewPatientContactPref(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    >
+                      <option value="call">Direct Voice Call</option>
+                      <option value="whatsapp">WhatsApp / Messaging</option>
+                      <option value="sms">SMS Notification Only</option>
+                      <option value="silent">Silent Outreach (Trauma-safe)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Preferred Hours
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientPreferredTime}
+                      onChange={(e) => setNewPatientPreferredTime(e.target.value)}
+                      placeholder="e.g. 10:00 AM - 1:00 PM"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Case & Legal Parameters */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-sky-600" />
+                  <span>2. Case & Legal Proceedings</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Case Dossier / FIR Number
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientCaseNumber}
+                      onChange={(e) => setNewPatientCaseNumber(e.target.value)}
+                      placeholder="Leave blank to auto-generate (e.g. MSJE/NHAA/2026/...)"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Current Statutory Stage
+                    </label>
+                    <select
+                      value={newPatientStage}
+                      onChange={(e) => setNewPatientStage(e.target.value as CaseStage)}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 capitalize"
+                    >
+                      <option value="registration">1. Registration & FIR</option>
+                      <option value="investigation">2. Investigation & Charge Sheet</option>
+                      <option value="trial">3. Special Court Trial</option>
+                      <option value="rehabilitation">4. Rehabilitation & Livelihood</option>
+                      <option value="compensation">5. Compensation & Case Closure</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Matter / Incident Category
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientIncidentType}
+                      onChange={(e) => setNewPatientIncidentType(e.target.value)}
+                      placeholder="e.g. Protection of Civil Rights & SC/ST Prevention of Atrocities Matter"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Next Hearing / Review Date
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientHearingDate}
+                      onChange={(e) => setNewPatientHearingDate(e.target.value)}
+                      placeholder="e.g. 18 Nov 2026"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Triage & Clinical Assessment */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  <span>3. Triage & Clinical Support</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Initial Distress Level
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['Normal', 'Moderate', 'High'] as const).map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setNewPatientDistress(lvl)}
+                          className={`py-1.5 text-center text-xs font-bold rounded-xl border transition ${
+                            newPatientDistress === lvl
+                              ? lvl === 'High'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : lvl === 'Moderate'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Assigned Police Cell Officer
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientOfficer}
+                      onChange={(e) => setNewPatientOfficer(e.target.value)}
+                      placeholder="e.g. Insp. R. K. Meena"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      DLSA Legal Aid Advocate
+                    </label>
+                    <input
+                      type="text"
+                      value={newPatientLegalAid}
+                      onChange={(e) => setNewPatientLegalAid(e.target.value)}
+                      placeholder="e.g. DLSA Central Delhi"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+
+                {newPatientDistress === 'High' && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>
+                      High distress selected: This will immediately generate a priority triage alert for emergency counsellor outreach.
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Initial Clinical / Triage Intake Note (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={newPatientInitialNote}
+                    onChange={(e) => setNewPatientInitialNote(e.target.value)}
+                    placeholder="Enter initial observations, psychological trauma markers, safety concerns, or legal aid requests..."
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPatientOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPatient || !newPatientName.trim()}
+                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isSubmittingPatient ? 'Registering Patient...' : 'Add Patient to Dossier'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Patient Details & Clinical Trajectory Modal */}
+      {isPatientModalOpen && selectedCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-8 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center font-extrabold text-base">
+                  {selectedCase.complainantName.charAt(0)}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-800">
+                      {selectedCase.complainantName}
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase">
+                      {selectedCase.currentStage} Stage
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        selectedCase.distressLevel === 'High'
+                          ? 'bg-rose-100 text-rose-800'
+                          : selectedCase.distressLevel === 'Moderate'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {selectedCase.distressLevel} Distress
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Case No: <span className="font-semibold text-slate-700">{selectedCase.caseNumber}</span> • {selectedCase.age} Yrs • Language: {selectedCase.language}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsPatientModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                title="Close dossier"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* Quick Contact & Legal Safeguard Vitals */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                    Contact Channel
+                  </span>
+                  <p className="font-bold text-slate-800 mt-0.5 capitalize">
+                    {selectedCase.contactPreference} • {selectedCase.preferredTime}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                    Assigned Police Cell Officer
+                  </span>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {selectedCase.assignedOfficer || 'Special SC/ST Protection Cell'}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                    DLSA Legal Aid Counsel
+                  </span>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {selectedCase.districtLegalAid || 'DLSA Panel Advocate'}
+                  </p>
+                </div>
+              </div>
+
+              {/* 7-Day Mood Trend Graph Component */}
+              <PatientMoodTrendGraph
+                caseData={selectedCase}
+                userCheckIns={firebaseCheckIns}
+              />
+
+              {/* Counsellor Clinical Notes & Interventions */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Clinical Intervention & Support Notes</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNote(!isAddingNote)}
+                    className="text-xs font-bold text-sky-700 hover:text-sky-800 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{isAddingNote ? 'Cancel Form' : 'Add Intervention Note'}</span>
+                  </button>
+                </div>
+
+                {/* Add Note Form in Modal */}
+                {isAddingNote && (
+                  <form
+                    onSubmit={handleAddIntervention}
+                    className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100 space-y-2.5 animate-in fade-in"
+                  >
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        Clinical Session / Outreach Note
+                      </label>
+                      <textarea
+                        rows={2}
+                        required
+                        value={newNoteText}
+                        onChange={(e) => setNewNoteText(e.target.value)}
+                        placeholder="Detail the psychosocial assessment, grounding exercises conducted, or safety review..."
+                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        Follow-up Action Taken
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newActionText}
+                        onChange={(e) => setNewActionText(e.target.value)}
+                        placeholder="e.g. Coordinated with DLSA advocate, scheduled breathing exercise call"
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingNote(false)}
+                        className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                      >
+                        Save Intervention
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Existing Notes Log */}
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {interventions
+                    .filter((n) => n.caseId === selectedCase.id)
+                    .map((note) => (
+                      <div
+                        key={note.id}
+                        className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="font-bold text-slate-700">
+                            {note.counsellorName}
+                          </span>
+                          <span>{note.date}</span>
+                        </div>
+                        <p className="text-slate-700 leading-relaxed">{note.note}</p>
+                        <div className="text-[10px] text-sky-800 font-semibold pt-0.5">
+                          Action: {note.actionTaken}
+                        </div>
+                      </div>
+                    ))}
+
+                  {interventions.filter((n) => n.caseId === selectedCase.id).length === 0 && (
+                    <p className="text-xs text-slate-400 italic py-2">
+                      No prior intervention notes logged yet for this complainant.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('overview');
+                  setIsPatientModalOpen(false);
+                }}
+                className="text-xs font-bold text-sky-700 hover:text-sky-800 flex items-center gap-1"
+              >
+                <span>Pin to Overview Dashboard →</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPatientModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+              >
+                Done
               </button>
             </div>
           </div>

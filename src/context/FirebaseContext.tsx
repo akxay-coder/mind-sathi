@@ -24,6 +24,8 @@ import {
 import { auth, db, googleProvider, handleFirestoreError, OperationType, testFirebaseConnection } from '../firebase';
 import {
   CaseData,
+  CaseStage,
+  CaseTimelineStep,
   CounsellorAlert,
   DailyCheckInRecord,
   InterventionNote,
@@ -82,6 +84,7 @@ interface FirebaseContextType {
   updateUserProfile: (updated: Partial<UserProfile>) => Promise<void>;
   addInterventionNote: (caseId: string, note: string, actionTaken: string) => Promise<void>;
   resolveCounsellorAlert: (alertId: string, resolutionNotes: string) => Promise<void>;
+  addNewPatient: (patient: Partial<CaseData> & { complainantName: string }) => Promise<CaseData>;
   setUserRole: (role: 'complainant' | 'counsellor') => void;
 }
 
@@ -218,8 +221,11 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             id: d.id,
             ...(d.data() as any),
           }));
-          setCases(loadedCases);
-          const found = loadedCases.find((c) => c.caseNumber === userProfile.caseId) || loadedCases[0];
+          // Merge loaded cases with default dossiers so initial demo profiles remain available
+          const loadedIds = new Set(loadedCases.map((c) => c.id));
+          const merged = [...loadedCases, ...COUNSELLOR_CASES.filter((c) => !loadedIds.has(c.id))];
+          setCases(merged);
+          const found = merged.find((c) => c.caseNumber === userProfile.caseId) || merged[0];
           if (found) setCurrentCase(found);
         }
       },
@@ -609,6 +615,145 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
+  // Register / Add New Patient Case (Counsellor / Admin)
+  const addNewPatient = async (patient: Partial<CaseData> & { complainantName: string }): Promise<CaseData> => {
+    const newCaseId = patient.id || `c-${Date.now().toString(36)}`;
+    const caseNumber = patient.caseNumber?.trim() || `MSJE/NHAA/2026/${Math.floor(1000 + Math.random() * 9000)}`;
+    const currentStage: CaseStage = patient.currentStage || 'registration';
+
+    const defaultTimeline: CaseTimelineStep[] = patient.timeline && patient.timeline.length > 0
+      ? patient.timeline
+      : [
+          {
+            stage: 'registration',
+            title: 'FIR & Formal Registration',
+            description: 'Case registered under Protection of Civil Rights & SC/ST (PoA) Act with NHAA 14566 intake.',
+            status: currentStage === 'registration' ? 'current' : 'completed',
+            date: patient.registrationDate || 'Today',
+            officerNote: 'Intake dossier generated. Psychological support link initialized.',
+          },
+          {
+            stage: 'investigation',
+            title: 'Investigation & Charge Sheet',
+            description: 'Special cell investigation and evidentiary compilation within statutory 60 days.',
+            status: currentStage === 'investigation' ? 'current' : (currentStage === 'registration' ? 'upcoming' : 'completed'),
+            date: currentStage === 'investigation' ? 'In Progress' : 'Statutory Phase',
+            officerNote: 'Designated Investigating Officer reviewing statements.',
+          },
+          {
+            stage: 'trial',
+            title: 'Special Designated Court Trial',
+            description: 'Judicial trial and victim deposition in safe environment with DLSA legal counsel.',
+            status: currentStage === 'trial' ? 'current' : (['registration', 'investigation'].includes(currentStage) ? 'upcoming' : 'completed'),
+            date: patient.nextHearingDate ? `Hearing: ${patient.nextHearingDate}` : 'Trial Scheduling',
+            officerNote: 'Legal aid advocate assigned for victim representation.',
+          },
+          {
+            stage: 'rehabilitation',
+            title: 'Rehabilitation & Livelihood Support',
+            description: 'Social welfare integration, psychosocial counseling, and state rehabilitation aid.',
+            status: currentStage === 'rehabilitation' ? 'current' : (currentStage === 'compensation' ? 'completed' : 'upcoming'),
+            date: 'Welfare Phase',
+            officerNote: 'Rehabilitation assessment under MoSJE scheme.',
+          },
+          {
+            stage: 'compensation',
+            title: 'Final Compensation & Closure',
+            description: 'Disbursement of statutory compensation funds directly into beneficiary account.',
+            status: currentStage === 'compensation' ? 'current' : 'upcoming',
+            date: 'Disbursement Phase',
+            officerNote: 'Interim relief processed under Central Sector Scheme.',
+          },
+        ];
+
+    const newCase: CaseData = {
+      id: newCaseId,
+      caseNumber,
+      complainantName: patient.complainantName.trim(),
+      age: patient.age ?? 28,
+      incidentType: patient.incidentType?.trim() || 'Protection of Civil Rights & SC/ST Prevention of Atrocities Matter',
+      registrationDate: patient.registrationDate || 'Today',
+      currentStage,
+      nextHearingDate: patient.nextHearingDate?.trim() || 'Scheduled within 30 days',
+      assignedCounsellor: patient.assignedCounsellor?.trim() || userProfile.name || 'Dr. Ananya Sen (MoSJE Empanelled)',
+      assignedOfficer: patient.assignedOfficer?.trim() || 'Special Cell Unit Desk',
+      districtLegalAid: patient.districtLegalAid?.trim() || 'DLSA Panel Advocate',
+      compensationStatus: patient.compensationStatus || {
+        totalEligible: '₹ 4,00,000',
+        interimDisbursed: '₹ 1,00,000',
+        finalPending: '₹ 3,00,000 (Upon Trial Conclusion)',
+      },
+      contactPreference: patient.contactPreference || 'call',
+      preferredTime: patient.preferredTime?.trim() || '10:00 AM - 1:00 PM',
+      language: patient.language?.trim() || 'Hindi',
+      distressLevel: patient.distressLevel || 'Normal',
+      timeline: defaultTimeline,
+    };
+
+    // Optimistically update cases list in state
+    setCases((prev) => [newCase, ...prev.filter((c) => c.id !== newCase.id && c.caseNumber !== newCase.caseNumber)]);
+
+    // Persist to Firestore cases collection
+    if (currentUser) {
+      try {
+        const firestorePayload = {
+          id: newCase.id,
+          caseNumber: newCase.caseNumber.slice(0, 64),
+          complainantName: newCase.complainantName.slice(0, 100),
+          age: newCase.age,
+          incidentType: newCase.incidentType.slice(0, 250),
+          registrationDate: newCase.registrationDate.slice(0, 50),
+          currentStage: newCase.currentStage,
+          nextHearingDate: newCase.nextHearingDate.slice(0, 100),
+          assignedCounsellor: newCase.assignedCounsellor.slice(0, 100),
+          assignedOfficer: newCase.assignedOfficer.slice(0, 100),
+          districtLegalAid: newCase.districtLegalAid.slice(0, 150),
+          contactPreference: newCase.contactPreference,
+          preferredTime: newCase.preferredTime.slice(0, 100),
+          language: newCase.language.slice(0, 50),
+          distressLevel: newCase.distressLevel,
+          updatedAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, 'cases', newCase.id), firestorePayload);
+      } catch (err) {
+        console.warn('Could not persist case directly to Firestore, retained in memory:', err);
+      }
+    }
+
+    // If distress is High, automatically register a triage alert
+    if (newCase.distressLevel === 'High') {
+      const alertItem: CounsellorAlert = {
+        id: `alt-${Date.now()}`,
+        caseId: newCase.id,
+        caseNumber: newCase.caseNumber,
+        complainantName: newCase.complainantName,
+        severity: 'High',
+        reason: `New patient intake flagged with High distress: ${newCase.incidentType}`,
+        timestamp: 'Just now',
+        status: 'Open',
+      };
+      setAlerts((prev) => [alertItem, ...prev]);
+      if (currentUser) {
+        try {
+          await addDoc(collection(db, 'alerts'), {
+            caseId: alertItem.caseId,
+            caseNumber: alertItem.caseNumber,
+            complainantName: alertItem.complainantName,
+            severity: alertItem.severity,
+            reason: alertItem.reason,
+            timestamp: alertItem.timestamp,
+            status: alertItem.status,
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.warn('Alert registration notice:', err);
+        }
+      }
+    }
+
+    return newCase;
+  };
+
   return (
     <FirebaseContext.Provider
       value={{
@@ -631,6 +776,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         updateUserProfile,
         addInterventionNote,
         resolveCounsellorAlert,
+        addNewPatient,
         setUserRole,
       }}
     >

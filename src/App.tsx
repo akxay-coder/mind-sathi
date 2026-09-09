@@ -218,6 +218,7 @@ function MainAppContent() {
             caseData={currentCase}
             onOpenHelpline={() => setIsHelplineOpen(true)}
             onRequestCounsellor={handleRequestCounsellor}
+            onBack={() => setCurrentTab('home')}
           />
         )}
 

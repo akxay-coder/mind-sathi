@@ -12,6 +12,7 @@ import {
   AlertCircle,
   HelpCircle,
   Lock,
+  ArrowLeft,
 } from 'lucide-react';
 import { CaseData, CaseStage } from '../types';
 
@@ -19,12 +20,14 @@ interface CaseStatusViewProps {
   caseData: CaseData;
   onOpenHelpline: () => void;
   onRequestCounsellor: () => void;
+  onBack?: () => void;
 }
 
 export const CaseStatusView: React.FC<CaseStatusViewProps> = ({
   caseData,
   onOpenHelpline,
   onRequestCounsellor,
+  onBack,
 }) => {
   const stages: { id: CaseStage; label: string; stepNum: number }[] = [
     { id: 'registration', label: 'Registration', stepNum: 1 },
@@ -38,6 +41,17 @@ export const CaseStatusView: React.FC<CaseStatusViewProps> = ({
 
   return (
     <div className="w-full pb-24 space-y-4 animate-in fade-in duration-300">
+      {/* Back button if opened from Home */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-700 hover:text-sky-800 py-1.5 px-3 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200/60 transition active:scale-95"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Home</span>
+        </button>
+      )}
+
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-sky-50 via-sky-50/40 to-slate-50 rounded-3xl p-5 border border-sky-100 shadow-sm">
         <div className="flex items-center justify-between mb-1">
@@ -124,10 +138,10 @@ export const CaseStatusView: React.FC<CaseStatusViewProps> = ({
         </div>
       </div>
 
-      {/* Detailed Vertical Milestone Timeline */}
+      {/* Detailed Vertical Case Journey */}
       <div className="bg-white rounded-3xl p-5 border border-sky-100 shadow-sm space-y-4">
         <h3 className="text-sm font-bold text-slate-800 tracking-tight">
-          Milestone Timeline
+          Official Case Status & Safeguards
         </h3>
 
         <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 pl-8">

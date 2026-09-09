@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Heart,
-  Calendar,
   Phone,
   Shield,
   ArrowRight,
@@ -9,7 +8,6 @@ import {
   BookOpen,
   UserCheck,
   CheckCircle2,
-  Clock,
   MessageCircle,
   HelpCircle,
   Smile,
@@ -137,66 +135,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
             <p className="text-[10px] text-slate-500 mt-1">Counsellor active</p>
           </div>
-        </div>
-      </div>
-
-      {/* Upcoming Important Case Dates */}
-      <div className="bg-gradient-to-br from-white to-sky-50/50 rounded-3xl p-5 border border-sky-100 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">
-                Upcoming Case Milestones
-              </h2>
-              <p className="text-[10px] text-slate-400">
-                Case No: {caseData.caseNumber}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => onNavigateTab('case')}
-            className="text-xs font-bold text-sky-700 hover:text-sky-800 flex items-center gap-1"
-          >
-            <span>Timeline</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-white border border-sky-100 shadow-sm flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 flex flex-col items-center justify-center shrink-0">
-            <span className="text-[10px] uppercase font-bold text-sky-500">Oct</span>
-            <span className="text-sm font-extrabold text-sky-800 -mt-1">18</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-800">
-                Special Court Trial Hearing
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                Witness Deposition
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              District Legal Services advocate accompanied. Safe in-camera deposition enabled.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-1 px-1">
-          <span className="flex items-center gap-1 text-[11px]">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            Next milestone in 10 days
-          </span>
-          <button
-            onClick={() => onNavigateTab('case')}
-            className="text-[11px] font-semibold text-sky-600 hover:underline"
-          >
-            View Compensation Status →
-          </button>
         </div>
       </div>
 
