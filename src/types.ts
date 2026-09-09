@@ -1,5 +1,7 @@
 export type MoodLevel = 'great' | 'good' | 'okay' | 'low' | 'very_low';
 
+export type TabType = 'home' | 'checkin' | 'resources' | 'profile' | 'case';
+
 export interface MoodOption {
   level: MoodLevel;
   emoji: string;
@@ -46,6 +48,7 @@ export interface CaseData {
 
 export interface DailyCheckInRecord {
   id: string;
+  caseId?: string;
   date: string;
   mood: MoodLevel;
   energyLevel: number; // 1-5

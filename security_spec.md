@@ -1,4 +1,4 @@
-# Security Specification: MindSaathi Firestore Hardening
+# Security Specification: Health Matrix Firestore Hardening
 
 ## 1. Data Invariants
 1. **User Identity & Role Immutability**: A user cannot assign themselves an elevated role (`admin` or `counsellor`) upon self-registration. Role changes are restricted to existing authorized admins or empanelled officers.

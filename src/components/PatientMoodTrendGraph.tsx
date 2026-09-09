@@ -122,7 +122,7 @@ export const PatientMoodTrendGraph: React.FC<PatientMoodTrendGraphProps> = ({
       { score: 3, energy: 3, sleep: 'fair' as const, note: 'Routine chores; mild persistent tension.', flag: false },
       { score: 4, energy: 4, sleep: 'good' as const, note: 'Comfortable family discussion, felt hopeful.', flag: false },
       { score: 2, energy: 2, sleep: 'poor' as const, note: 'Troubled sleep following discussion of case events.', flag: true },
-      { score: 3, energy: 3, sleep: 'fair' as const, note: 'Completed 5-minute breathing session on MindSaathi.', flag: false },
+      { score: 3, energy: 3, sleep: 'fair' as const, note: 'Completed 5-minute breathing session on Health Matrix.', flag: false },
       { score: 3, energy: 3, sleep: 'fair' as const, note: 'Spoke with DLSA advocate regarding documents.', flag: false },
       { score: 4, energy: 4, sleep: 'good' as const, note: 'Session with counsellor felt grounding and validating.', flag: false },
       { score: 3, energy: 3, sleep: 'fair' as const, note: 'Calm morning; taking one day at a time.', flag: false },
@@ -178,7 +178,7 @@ export const PatientMoodTrendGraph: React.FC<PatientMoodTrendGraphProps> = ({
           energyLevel: matchedCheckIn.energyLevel || pattern[dayIndex].energy,
           sleepQuality: matchedCheckIn.sleepQuality || pattern[dayIndex].sleep,
           notes: matchedCheckIn.notes || pattern[dayIndex].note,
-          tags: matchedCheckIn.tags || ['MindSaathi Log'],
+          tags: matchedCheckIn.tags || ['Health Matrix Log'],
           flaggedForCounsellor: Boolean(matchedCheckIn.flaggedForCounsellor || matchedCheckIn.mood === 'very_low'),
         });
       } else {
@@ -506,6 +506,15 @@ export const PatientMoodTrendGraph: React.FC<PatientMoodTrendGraphProps> = ({
                   />
                 )}
 
+                {/* Large transparent touch hit target for mobile fingers */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={18}
+                  fill="transparent"
+                  className="cursor-pointer"
+                />
+
                 {/* Flag pulse circle if day had crisis or distress */}
                 {pt.flaggedForCounsellor && (
                   <circle
@@ -568,17 +577,17 @@ export const PatientMoodTrendGraph: React.FC<PatientMoodTrendGraphProps> = ({
               </span>
             )}
           </div>
-          <span className="text-[9px] text-slate-400">Click points to inspect day</span>
+          <span className="text-[9px] text-slate-400">Tap points to inspect day</span>
         </div>
       </div>
 
       {/* Selected Day Inspection Card */}
       <div className={`p-3 rounded-xl border ${selectedDetails.border} ${selectedDetails.bg} text-xs space-y-2 transition animate-in fade-in duration-200`}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xl leading-none">{selectedDetails.emoji}</span>
             <div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <span className="font-extrabold text-slate-800">
                   {selectedDetails.label} (Level {selectedDay.score}/5)
                 </span>
@@ -594,7 +603,7 @@ export const PatientMoodTrendGraph: React.FC<PatientMoodTrendGraphProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-600">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-600 flex-wrap">
             <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/80 border border-slate-200/60 shadow-2xs">
               <Zap className="w-3 h-3 text-amber-500" />
               Energy: {selectedDay.energyLevel}/5

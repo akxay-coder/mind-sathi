@@ -49,10 +49,10 @@ export function normalizeAuthEmail(input: string): string {
   // Mobile phone number: strip non-digit characters
   const cleanDigits = trimmed.replace(/[^0-9]/g, '');
   if (cleanDigits.length >= 7) {
-    return `${cleanDigits}@mindsaathi.app`;
+    return `${cleanDigits}@healthmatrix.app`;
   }
   const cleanAlpha = trimmed.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  return `${cleanAlpha || 'user'}@mindsaathi.app`;
+  return `${cleanAlpha || 'user'}@healthmatrix.app`;
 }
 
 interface FirebaseContextType {

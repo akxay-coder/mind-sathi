@@ -195,7 +195,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onOpenHe
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-            MindSaathi
+            Health Matrix
           </h1>
           <p className="text-xs font-medium text-sky-600 mt-0.5 tracking-wider uppercase">
             Samvedna Wellbeing Companion

@@ -31,7 +31,7 @@ export const MoodBoard: React.FC<MoodBoardProps> = ({
   };
 
   return (
-    <div className="w-full bg-white/90 backdrop-blur-sm rounded-3xl p-5 border border-sky-100 shadow-sm transition-all">
+    <div className="w-full bg-white/90 backdrop-blur-sm rounded-3xl p-4 sm:p-5 border border-sky-100 shadow-sm transition-all">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse" />
@@ -49,7 +49,7 @@ export const MoodBoard: React.FC<MoodBoardProps> = ({
       </p>
 
       {/* Emoji Row / Grid */}
-      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
         {MOOD_OPTIONS.map((item) => {
           const isSelected = selected === item.level;
           return (
@@ -57,17 +57,17 @@ export const MoodBoard: React.FC<MoodBoardProps> = ({
               key={item.level}
               type="button"
               onClick={() => handleSelect(item.level)}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all transform active:scale-90 ${
+              className={`flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl border transition-all transform active:scale-95 min-h-[64px] sm:min-h-[76px] ${
                 isSelected
-                  ? 'bg-sky-50 border-sky-300 shadow-md ring-2 ring-sky-200 scale-105'
+                  ? 'bg-sky-50 border-sky-300 shadow-md ring-2 ring-sky-200 scale-102'
                   : 'bg-slate-50/70 border-slate-100 hover:bg-sky-50/50 hover:border-sky-100'
               }`}
             >
-              <span className="text-3xl sm:text-4xl mb-1.5 filter drop-shadow-sm select-none transition-transform hover:scale-110">
+              <span className="text-2xl sm:text-3xl mb-1 filter drop-shadow-2xs select-none transition-transform hover:scale-110">
                 {item.emoji}
               </span>
               <span
-                className={`text-[11px] font-semibold tracking-tight ${
+                className={`text-[10px] sm:text-xs font-semibold tracking-tight text-center leading-tight ${
                   isSelected ? 'text-sky-900' : 'text-slate-600'
                 }`}
               >

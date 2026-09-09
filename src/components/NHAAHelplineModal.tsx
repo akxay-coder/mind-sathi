@@ -13,7 +13,7 @@ export const NHAAHelplineModal: React.FC<NHAAHelplineModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
-      <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-sky-100 overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="w-full sm:max-w-lg md:max-w-xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-sky-100 overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300">
         {/* Header with soft gradient */}
         <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 p-5 border-b border-sky-100 relative">
           <button

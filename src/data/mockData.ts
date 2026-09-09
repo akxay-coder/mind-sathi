@@ -160,7 +160,7 @@ export const INITIAL_CHECKINS: DailyCheckInRecord[] = [
     mood: 'okay',
     energyLevel: 3,
     sleepQuality: 'fair',
-    notes: 'Listened to guided meditation resource on MindSaathi.',
+    notes: 'Listened to guided meditation resource on Health Matrix.',
     tags: ['Self-Care'],
   },
   {
@@ -321,7 +321,7 @@ export const INITIAL_INTERVENTIONS: InterventionNote[] = [
     date: '18 Sep 2026',
     counsellorName: 'Dr. Ananya Sen',
     note: 'Initial psychological first aid review post charge sheet submission. Victim experiencing occasional insomnia.',
-    actionTaken: 'Recommended sleep hygiene protocol and introduced daily check-in feature on MindSaathi.',
+    actionTaken: 'Recommended sleep hygiene protocol and introduced daily check-in feature on Health Matrix.',
     followUpDate: '02 Oct 2026',
   },
 ];

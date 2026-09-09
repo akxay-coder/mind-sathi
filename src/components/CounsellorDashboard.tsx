@@ -23,6 +23,11 @@ import {
   LogOut,
   ExternalLink,
   Cloud,
+  Sparkles,
+  Wand2,
+  Brain,
+  Lightbulb,
+  Bot,
 } from 'lucide-react';
 import {
   CaseData,
@@ -95,6 +100,60 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
   const [newNoteText, setNewNoteText] = useState('');
   const [newActionText, setNewActionText] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [isPolishingNote, setIsPolishingNote] = useState(false);
+
+  // AI Clinical Insights State
+  const [insightsCache, setInsightsCache] = useState<Record<string, any>>({});
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+
+  const handleFetchInsights = async (targetCase: CaseData) => {
+    setIsLoadingInsights(true);
+    try {
+      const res = await fetch('/api/gemini/counsellor-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caseData: targetCase,
+          checkIns: (firebaseCheckIns || []).filter((c) => c.caseId === targetCase.id || targetCase.id === 'case-1'),
+          existingNotes: interventions.filter((i) => i.caseId === targetCase.id),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInsightsCache((prev) => ({ ...prev, [targetCase.id]: data }));
+      }
+    } catch (err) {
+      console.error('Failed to generate clinical insights:', err);
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+
+  const handlePolishNote = async () => {
+    if (!newNoteText.trim() || isPolishingNote) return;
+    setIsPolishingNote(true);
+    try {
+      const res = await fetch('/api/gemini/assist-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft: newNoteText,
+          complainantName: selectedCase?.complainantName,
+          stage: selectedCase?.currentStage,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.enhancedNote) {
+          setNewNoteText(data.enhancedNote);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to polish note with AI:', err);
+    } finally {
+      setIsPolishingNote(false);
+    }
+  };
 
   // Resolve alert modal state
   const [resolvingAlert, setResolvingAlert] = useState<CounsellorAlert | null>(null);
@@ -195,7 +254,7 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-extrabold text-slate-800 tracking-tight">
-                  MindSaathi
+                  Health Matrix
                 </span>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
                   Counsellor & Admin Portal
@@ -217,16 +276,17 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
             <button
               onClick={() => setIsAddPatientOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition active:scale-95 shadow-xs"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition active:scale-95 shadow-xs min-h-[36px]"
               title="Add New Patient"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Patient</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="hidden xs:inline">Add Patient</span>
+              <span className="xs:hidden">Add</span>
             </button>
 
             <button
               onClick={onOpenHelpline}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 text-sky-800 hover:bg-sky-100 text-xs font-bold border border-sky-200 transition"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 text-sky-800 hover:bg-sky-100 text-xs font-bold border border-sky-200 transition min-h-[36px]"
             >
               <Phone className="w-3.5 h-3.5 text-sky-600" />
               <span>NHAA 14566 Desk</span>
@@ -234,11 +294,11 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 border border-slate-200"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 border border-slate-200 min-h-[36px]"
               title="Sign Out of Counsellor Dashboard"
             >
-              <LogOut className="w-3.5 h-3.5 text-slate-500" />
-              <span>Sign Out</span>
+              <LogOut className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
 
             <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
@@ -262,8 +322,8 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
           </div>
         </div>
 
-        {/* Secondary Nav Tabs */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-6 border-t border-slate-100 text-xs font-semibold">
+        {/* Secondary Nav Tabs (Swipeable on Mobile) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-4 sm:gap-6 border-t border-slate-100 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap select-none">
           {[
             { id: 'overview', label: 'Dashboard Overview' },
             { id: 'cases', label: `Casework Dossier (${cases.length})` },
@@ -273,7 +333,7 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-3 relative transition ${
+              className={`py-3 relative transition shrink-0 ${
                 activeTab === tab.id
                   ? 'text-sky-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -574,11 +634,11 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                   {/* Case Header */}
                   <div className="border-b border-slate-100 pb-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase">
-                        {selectedCase.currentStage} Stage
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                        Active Complainant
                       </span>
                       <span className="text-xs text-slate-400">
-                        Hearing: {selectedCase.nextHearingDate}
+                        Language: {selectedCase.language}
                       </span>
                     </div>
                     <h3 className="text-base font-extrabold text-slate-800 mt-1">
@@ -713,7 +773,7 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                   All Monitored Complainants Dossier
                 </h3>
                 <p className="text-xs text-slate-500">
-                  MoSJE victim mental health and legal progression register
+                  MoSJE victim mental health and psychosocial support register
                 </p>
               </div>
 
@@ -738,16 +798,16 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Desktop / Tablet Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-3">Complainant</th>
                     <th className="py-3 px-3">Case ID</th>
-                    <th className="py-3 px-3">Current Stage</th>
-                    <th className="py-3 px-3">Next Hearing</th>
                     <th className="py-3 px-3">Distress Status</th>
                     <th className="py-3 px-3">Contact Pref</th>
+                    <th className="py-3 px-3">Preferred Time</th>
                     <th className="py-3 px-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -778,14 +838,6 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                           {c.caseNumber}
                         </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 capitalize">
-                            {c.currentStage}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-600">
-                          {c.nextHearingDate}
-                        </td>
-                        <td className="py-3 px-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                               c.distressLevel === 'High'
@@ -801,13 +853,16 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                         <td className="py-3 px-3 uppercase text-[10px] font-semibold text-slate-600">
                           {c.contactPreference}
                         </td>
+                        <td className="py-3 px-3 text-slate-600 font-medium">
+                          {c.preferredTime}
+                        </td>
                         <td className="py-3 px-3 text-right">
                           <button
                             onClick={() => {
                               setSelectedCase(c);
                               setIsPatientModalOpen(true);
                             }}
-                            className="px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg font-bold text-xs"
+                            className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg font-bold text-xs transition"
                           >
                             View Details
                           </button>
@@ -817,6 +872,70 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards View (Optimized for Small Screens) */}
+            <div className="md:hidden space-y-3">
+              {filteredCases.map((c) => {
+                const isNew = c.id === recentlyAddedId;
+                return (
+                  <div
+                    key={c.id}
+                    className={`p-4 rounded-2xl border transition ${
+                      isNew ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50/70 border-slate-200/70 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-800 text-sm">{c.complainantName}</span>
+                          {isNew && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              NEW
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                          Case: <strong className="text-slate-600 font-medium">{c.caseNumber}</strong> • {c.age} Yrs • {c.language}
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          c.distressLevel === 'High'
+                            ? 'bg-rose-100 text-rose-800'
+                            : c.distressLevel === 'Moderate'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {c.distressLevel} Distress
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] mb-3 bg-white p-2.5 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Contact Mode:</span>
+                        <span className="font-bold text-slate-700 uppercase">{c.contactPreference}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Preferred Window:</span>
+                        <span className="font-semibold text-slate-700">{c.preferredTime}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedCase(c);
+                        setIsPatientModalOpen(true);
+                      }}
+                      className="w-full py-2.5 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-xs shadow-xs transition active:scale-[0.99] flex items-center justify-center gap-1.5 min-h-[40px]"
+                    >
+                      <span>View Dossier & Mood Trend</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -928,28 +1047,27 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
             <div className="bg-white rounded-3xl p-5 border border-sky-100 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-800">
-                PoA Stage Casework Distribution
+                Clinical Support & Outreach Status
               </h3>
               <p className="text-xs text-slate-500">
-                Progression across statutory procedural stages under Ministry oversight
+                Active engagement and counselling distribution across registered individuals
               </p>
 
               <div className="space-y-3 pt-2">
                 {[
-                  { stage: '1. Registration & FIR', count: 18, pct: '13%' },
-                  { stage: '2. Investigation & Charge Sheet', count: 34, pct: '24%' },
-                  { stage: '3. Special Court Trial', count: 62, pct: '44%' },
-                  { stage: '4. Rehabilitation & Livelihood', count: 16, pct: '11%' },
-                  { stage: '5. Compensation & Case Closure', count: 12, pct: '8%' },
+                  { status: 'Routine Daily Monitoring', count: 68, pct: '48%', color: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
+                  { status: 'Weekly Therapy / Tele-Counselling', count: 42, pct: '30%', color: 'text-sky-700 bg-sky-50 border-sky-100' },
+                  { status: 'Immediate Triage / Active Outreach', count: 18, pct: '13%', color: 'text-rose-700 bg-rose-50 border-rose-100' },
+                  { status: 'Empanelled Psychological Follow-Up', count: 14, pct: '9%', color: 'text-indigo-700 bg-indigo-50 border-indigo-100' },
                 ].map((st) => (
                   <div
-                    key={st.stage}
+                    key={st.status}
                     className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between"
                   >
                     <span className="text-xs font-bold text-slate-800">
-                      {st.stage}
+                      {st.status}
                     </span>
-                    <span className="text-xs font-extrabold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-100">
+                    <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border ${st.color}`}>
                       {st.count} ({st.pct})
                     </span>
                   </div>
@@ -1018,8 +1136,8 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
       {/* Add New Patient Modal */}
       {isAddPatientOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-8 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-0 sm:my-8 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[92vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1133,17 +1251,17 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Case & Legal Parameters */}
+              {/* Dossier & Intake Details */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-sky-600" />
-                  <span>2. Case & Legal Proceedings</span>
+                  <span>2. Dossier & Intake Details</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Case Dossier / FIR Number
+                      Case Dossier / Identifier Number
                     </label>
                     <input
                       type="text"
@@ -1156,45 +1274,13 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Current Statutory Stage
-                    </label>
-                    <select
-                      value={newPatientStage}
-                      onChange={(e) => setNewPatientStage(e.target.value as CaseStage)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 capitalize"
-                    >
-                      <option value="registration">1. Registration & FIR</option>
-                      <option value="investigation">2. Investigation & Charge Sheet</option>
-                      <option value="trial">3. Special Court Trial</option>
-                      <option value="rehabilitation">4. Rehabilitation & Livelihood</option>
-                      <option value="compensation">5. Compensation & Case Closure</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Matter / Incident Category
+                      Matter / Support Category
                     </label>
                     <input
                       type="text"
                       value={newPatientIncidentType}
                       onChange={(e) => setNewPatientIncidentType(e.target.value)}
                       placeholder="e.g. Protection of Civil Rights & SC/ST Prevention of Atrocities Matter"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Next Hearing / Review Date
-                    </label>
-                    <input
-                      type="text"
-                      value={newPatientHearingDate}
-                      onChange={(e) => setNewPatientHearingDate(e.target.value)}
-                      placeholder="e.g. 18 Nov 2026"
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400"
                     />
                   </div>
@@ -1310,8 +1396,8 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
 
       {/* Patient Details & Clinical Trajectory Modal */}
       {isPatientModalOpen && selectedCase && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-3xl bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-8 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border border-sky-100 space-y-4 my-0 sm:my-8 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[92vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-3">
@@ -1323,9 +1409,6 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                     <h3 className="text-base sm:text-lg font-extrabold text-slate-800">
                       {selectedCase.complainantName}
                     </h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase">
-                      {selectedCase.currentStage} Stage
-                    </span>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         selectedCase.distressLevel === 'High'
@@ -1391,6 +1474,102 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                 userCheckIns={firebaseCheckIns}
               />
 
+              {/* Gemini AI Clinical Triage & Actionable Insights */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50/70 via-indigo-50/40 to-white border border-sky-100 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-sky-600 text-white flex items-center justify-center">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                        <span>AI Clinical Triage & Support Plan</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-sky-100 text-sky-800">
+                          Gemini 3.5 Flash
+                        </span>
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        Synthesizes legal stage, check-in history, and trauma indicators
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleFetchInsights(selectedCase)}
+                    disabled={isLoadingInsights}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 rounded-xl shadow-xs transition disabled:opacity-50"
+                  >
+                    <Sparkles className={`w-3 h-3 text-sky-600 ${isLoadingInsights ? 'animate-spin' : ''}`} />
+                    <span>
+                      {isLoadingInsights
+                        ? 'Analyzing dossier...'
+                        : insightsCache[selectedCase.id]
+                        ? 'Refresh Analysis'
+                        : 'Generate AI Insights'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Insights Display */}
+                {insightsCache[selectedCase.id] ? (
+                  <div className="space-y-2.5 pt-1 text-xs">
+                    <div className="p-3 rounded-xl bg-white/90 border border-sky-100 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Clinical Synthesis
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                            insightsCache[selectedCase.id].riskTrajectory?.includes('critical') ||
+                            insightsCache[selectedCase.id].riskTrajectory?.includes('elevated')
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          Trajectory: {insightsCache[selectedCase.id].riskTrajectory?.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        {insightsCache[selectedCase.id].clinicalSummary}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                      {/* Interventions */}
+                      <div className="p-2.5 rounded-xl bg-white/80 border border-slate-100 space-y-1">
+                        <span className="font-bold text-sky-900 flex items-center gap-1 text-[10px] uppercase">
+                          <Heart className="w-3 h-3 text-rose-500" />
+                          Recommended Interventions
+                        </span>
+                        <ul className="space-y-1 text-slate-600 list-disc list-inside">
+                          {insightsCache[selectedCase.id].psychosocialInterventions?.map((item: string, idx: number) => (
+                            <li key={idx} className="leading-snug">{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Legal & Outreach */}
+                      <div className="p-2.5 rounded-xl bg-white/80 border border-slate-100 space-y-1">
+                        <span className="font-bold text-sky-900 flex items-center gap-1 text-[10px] uppercase">
+                          <Shield className="w-3 h-3 text-sky-600" />
+                          DLSA & Outreach Directives
+                        </span>
+                        <p className="text-slate-600 leading-snug">
+                          {insightsCache[selectedCase.id].outreachAdvice}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  !isLoadingInsights && (
+                    <div className="p-3 text-center bg-white/60 border border-dashed border-sky-200 rounded-xl text-xs text-slate-500">
+                      Tap <strong className="text-sky-700">"Generate AI Insights"</strong> to receive an automated psychological assessment, risk trajectory evaluation, and DLSA coordination guidance for {selectedCase.complainantName}.
+                    </div>
+                  )
+                )}
+              </div>
+
               {/* Counsellor Clinical Notes & Interventions */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between">
@@ -1415,9 +1594,21 @@ export const CounsellorDashboard: React.FC<CounsellorDashboardProps> = ({
                     className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100 space-y-2.5 animate-in fade-in"
                   >
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                        Clinical Session / Outreach Note
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          Clinical Session / Outreach Note
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handlePolishNote}
+                          disabled={isPolishingNote || !newNoteText.trim()}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 hover:text-sky-800 disabled:opacity-40 bg-white px-2 py-0.5 rounded-md border border-sky-200 shadow-2xs transition"
+                          title="Format and refine draft note using Gemini AI"
+                        >
+                          <Sparkles className={`w-3 h-3 text-sky-500 ${isPolishingNote ? 'animate-spin' : ''}`} />
+                          <span>{isPolishingNote ? 'Refining...' : 'AI Refine Note'}</span>
+                        </button>
+                      </div>
                       <textarea
                         rows={2}
                         required
