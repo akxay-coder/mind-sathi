@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "User account profile with role, preferences and case linkage",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["complainant", "counsellor", "admin"] },
+        "caseId": { "type": "string", "maxLength": 64 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "age": { "type": "number" },
+        "contactPreference": { "type": "string", "enum": ["call", "whatsapp", "sms", "silent"] },
+        "preferredTime": { "type": "string", "maxLength": 100 },
+        "language": { "type": "string", "maxLength": 50 },
+        "biometricEnabled": { "type": "boolean" },
+        "confidentialMode": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId", "name", "role"]
+    },
+    "dailyCheckIn": {
+      "title": "Daily Check-In Record",
+      "description": "Daily emotional and mental health check-in record for complainant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "caseId": { "type": "string", "maxLength": 64 },
+        "date": { "type": "string", "maxLength": 50 },
+        "mood": { "type": "string", "enum": ["great", "good", "okay", "low", "very_low"] },
+        "energyLevel": { "type": "number" },
+        "sleepQuality": { "type": "string", "enum": ["good", "fair", "poor", "disturbed"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "tags": { "type": "array", "maxLength": 10 },
+        "flaggedForCounsellor": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId", "mood", "energyLevel", "sleepQuality"]
+    },
+    "caseRecord": {
+      "title": "Support Case Record",
+      "description": "MoSJE Samvedna case details and judicial/rehabilitation stage tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "caseNumber": { "type": "string", "maxLength": 64 },
+        "complainantName": { "type": "string", "maxLength": 100 },
+        "complainantId": { "type": "string", "maxLength": 128 },
+        "age": { "type": "number" },
+        "incidentType": { "type": "string", "maxLength": 250 },
+        "registrationDate": { "type": "string", "maxLength": 50 },
+        "currentStage": { "type": "string", "enum": ["registration", "investigation", "trial", "rehabilitation", "compensation"] },
+        "nextHearingDate": { "type": "string", "maxLength": 100 },
+        "assignedCounsellor": { "type": "string", "maxLength": 100 },
+        "assignedOfficer": { "type": "string", "maxLength": 100 },
+        "districtLegalAid": { "type": "string", "maxLength": 150 },
+        "contactPreference": { "type": "string", "enum": ["call", "whatsapp", "sms", "silent"] },
+        "preferredTime": { "type": "string", "maxLength": 100 },
+        "language": { "type": "string", "maxLength": 50 },
+        "distressLevel": { "type": "string", "enum": ["Normal", "Moderate", "High"] },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["caseNumber", "complainantName", "currentStage"]
+    },
+    "counsellorAlert": {
+      "title": "Counsellor Alert",
+      "description": "Alert raised when high distress or frequent negative check-ins occur",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "caseId": { "type": "string", "maxLength": 64 },
+        "caseNumber": { "type": "string", "maxLength": 64 },
+        "complainantName": { "type": "string", "maxLength": 100 },
+        "severity": { "type": "string", "enum": ["High", "Moderate", "Low"] },
+        "reason": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["Open", "Under Review", "Resolved"] },
+        "resolutionNotes": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["caseId", "severity", "reason", "status"]
+    },
+    "interventionNote": {
+      "title": "Intervention Note",
+      "description": "Clinical intervention log entered by assigned counsellor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "caseId": { "type": "string", "maxLength": 64 },
+        "date": { "type": "string", "maxLength": 50 },
+        "counsellorName": { "type": "string", "maxLength": 100 },
+        "note": { "type": "string", "maxLength": 2000 },
+        "actionTaken": { "type": "string", "maxLength": 1000 },
+        "followUpDate": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["caseId", "counsellorName", "note"]
+    },
+    "chatMessage": {
+      "title": "Saathi Chat Message",
+      "description": "Confidential AI Saathi mental health companion dialogue message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "sender": { "type": "string", "enum": ["user", "bot", "counsellor"] },
+        "text": { "type": "string", "maxLength": 2000 },
+        "timestamp": { "type": "string", "maxLength": 50 },
+        "isCrisisAlert": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId", "sender", "text"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "User profile document containing authentication metadata, preferences and role"
+    },
+    "/checkins/{checkinId}": {
+      "schema": "dailyCheckIn",
+      "description": "Daily mood, sleep, energy and reflection check-in logs submitted by complainants"
+    },
+    "/cases/{caseId}": {
+      "schema": "caseRecord",
+      "description": "Legal and rehabilitation case tracking information"
+    },
+    "/alerts/{alertId}": {
+      "schema": "counsellorAlert",
+      "description": "Distress notifications and proactive outreach alerts for counselors"
+    },
+    "/interventions/{interventionId}": {
+      "schema": "interventionNote",
+      "description": "Clinical and supportive intervention logs recorded by counsellors"
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "chatMessage",
+      "description": "Conversations between beneficiary and Saathi companion"
+    }
+  }
+}

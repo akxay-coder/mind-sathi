@@ -1,0 +1,216 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pillar 1: Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Hardened Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Bootstrapped Admin Verification & Trusted Database Document Check
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'akshaypiano@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isCounsellor() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'counsellor')
+      );
+    }
+
+    // --- Standalone Entity Validation Helpers ---
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.role in ['complainant', 'counsellor', 'admin'] &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+        (!('caseId' in data) || (data.caseId is string && data.caseId.size() <= 64)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+        (!('age' in data) || (data.age is number && data.age >= 0 && data.age <= 130)) &&
+        (!('contactPreference' in data) || data.contactPreference in ['call', 'whatsapp', 'sms', 'silent']) &&
+        (!('preferredTime' in data) || (data.preferredTime is string && data.preferredTime.size() <= 100)) &&
+        (!('language' in data) || (data.language is string && data.language.size() <= 50)) &&
+        (!('biometricEnabled' in data) || data.biometricEnabled is bool) &&
+        (!('confidentialMode' in data) || data.confidentialMode is bool);
+    }
+
+    function isValidDailyCheckIn(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+        data.mood in ['great', 'good', 'okay', 'low', 'very_low'] &&
+        data.energyLevel is number && data.energyLevel >= 1 && data.energyLevel <= 5 &&
+        data.sleepQuality in ['good', 'fair', 'poor', 'disturbed'] &&
+        (!('date' in data) || (data.date is string && data.date.size() <= 50)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+        (!('flaggedForCounsellor' in data) || data.flaggedForCounsellor is bool) &&
+        (!('caseId' in data) || (data.caseId is string && data.caseId.size() <= 64));
+    }
+
+    function isValidCase(data) {
+      return data.caseNumber is string && data.caseNumber.size() > 0 && data.caseNumber.size() <= 64 &&
+        data.complainantName is string && data.complainantName.size() > 0 && data.complainantName.size() <= 100 &&
+        data.currentStage in ['registration', 'investigation', 'trial', 'rehabilitation', 'compensation'] &&
+        (!('distressLevel' in data) || data.distressLevel in ['Normal', 'Moderate', 'High']) &&
+        (!('complainantId' in data) || (data.complainantId is string && data.complainantId.size() <= 128));
+    }
+
+    function isValidAlert(data) {
+      return data.caseId is string && data.caseId.size() > 0 && data.caseId.size() <= 64 &&
+        data.severity in ['High', 'Moderate', 'Low'] &&
+        data.reason is string && data.reason.size() > 0 && data.reason.size() <= 500 &&
+        data.status in ['Open', 'Under Review', 'Resolved'] &&
+        (!('resolutionNotes' in data) || (data.resolutionNotes is string && data.resolutionNotes.size() <= 1000));
+    }
+
+    function isValidIntervention(data) {
+      return data.caseId is string && data.caseId.size() > 0 && data.caseId.size() <= 64 &&
+        data.counsellorName is string && data.counsellorName.size() > 0 && data.counsellorName.size() <= 100 &&
+        data.note is string && data.note.size() > 0 && data.note.size() <= 2000 &&
+        (!('actionTaken' in data) || (data.actionTaken is string && data.actionTaken.size() <= 1000)) &&
+        (!('followUpDate' in data) || (data.followUpDate is string && data.followUpDate.size() <= 50));
+    }
+
+    function isValidChatMessage(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+        data.sender in ['user', 'bot', 'counsellor'] &&
+        data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
+        (!('isCrisisAlert' in data) || data.isCrisisAlert is bool);
+    }
+
+    // --- Collections ---
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isCounsellor());
+      allow list: if isCounsellor();
+
+      // Create: Allow complainant or counsellor registration, or admin
+      allow create: if isValidId(userId) && isOwner(userId) &&
+        isValidUserProfile(incoming()) &&
+        (incoming().role in ['complainant', 'counsellor'] || isAdmin());
+
+      // Update: User can update own preferences, but not change their role without being admin
+      allow update: if isValidId(userId) && isOwner(userId) &&
+        isValidUserProfile(incoming()) &&
+        (isAdmin() || incoming().role == existing().role) &&
+        incoming().userId == existing().userId;
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 2. Daily Check-Ins Collection
+    match /checkins/{checkinId} {
+      allow get: if isValidId(checkinId) && (isOwner(existing().userId) || isCounsellor());
+      allow list: if isSignedIn() && (isCounsellor() || resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(checkinId) && isSignedIn() &&
+        isValidDailyCheckIn(incoming()) &&
+        incoming().userId == request.auth.uid;
+
+      allow update: if isValidId(checkinId) && isSignedIn() &&
+        isValidDailyCheckIn(incoming()) &&
+        incoming().userId == existing().userId &&
+        isOwner(existing().userId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['mood', 'energyLevel', 'sleepQuality', 'notes', 'tags', 'flaggedForCounsellor', 'date']);
+
+      allow delete: if isValidId(checkinId) && (isOwner(existing().userId) || isAdmin());
+    }
+
+    // 3. Cases Collection
+    match /cases/{caseId} {
+      allow get: if isValidId(caseId) && (
+        isCounsellor() ||
+        (isSignedIn() && ('complainantId' in existing()) && existing().complainantId == request.auth.uid)
+      );
+      allow list: if isSignedIn() && (
+        isCounsellor() ||
+        resource.data.complainantId == request.auth.uid
+      );
+
+      allow create: if isValidId(caseId) && isCounsellor() && isValidCase(incoming());
+
+      allow update: if isValidId(caseId) && isCounsellor() &&
+        isValidCase(incoming()) &&
+        incoming().caseNumber == existing().caseNumber;
+
+      allow delete: if isValidId(caseId) && isAdmin();
+    }
+
+    // 4. Alerts Collection
+    match /alerts/{alertId} {
+      allow get, list: if isCounsellor();
+
+      allow create: if isValidId(alertId) && isSignedIn() && isValidAlert(incoming());
+
+      allow update: if isValidId(alertId) && isCounsellor() &&
+        isValidAlert(incoming()) &&
+        incoming().caseId == existing().caseId &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'resolutionNotes', 'severity', 'updatedAt']);
+
+      allow delete: if isValidId(alertId) && isAdmin();
+    }
+
+    // 5. Interventions Collection
+    match /interventions/{interventionId} {
+      allow get, list: if isCounsellor();
+
+      allow create: if isValidId(interventionId) && isCounsellor() && isValidIntervention(incoming());
+
+      allow update: if isValidId(interventionId) && isCounsellor() &&
+        isValidIntervention(incoming()) &&
+        incoming().caseId == existing().caseId;
+
+      allow delete: if isValidId(interventionId) && isAdmin();
+    }
+
+    // 6. Saathi Chat Messages
+    match /chat_messages/{messageId} {
+      allow get: if isValidId(messageId) && (isOwner(existing().userId) || isCounsellor());
+      allow list: if isSignedIn() && (isCounsellor() || resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(messageId) && isSignedIn() &&
+        isValidChatMessage(incoming()) &&
+        incoming().userId == request.auth.uid;
+
+      allow delete: if isValidId(messageId) && isOwner(existing().userId);
+    }
+
+    // 7. Test Connection Collection (Required by Firebase skill)
+    match /test/{testId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 8. Admin Collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
